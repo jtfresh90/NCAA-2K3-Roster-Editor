@@ -75,3 +75,54 @@ This tool ships **no game data**. You must supply your own legally dumped ISO. F
 - Format reverse-engineering and editor by Strider (Muse)
 - For Joshua (jtfresh90)
 - Modeled on [cruuz/2k-football-mod-tools](https://github.com/cruuz/2k-football-mod-tools) architecture
+
+---
+
+# Texture Tools (v1.1.0 - Research Boundary)
+
+**⚠️ RESEARCH PREVIEW — NOT GAME-SAFE ⚠️**
+
+Texture editing tools following cruuz's methodology. The format identification
+is GUESSED from size analysis, NOT verified via Dolphin. Do NOT use on a real
+game without verification.
+
+## Methodology
+
+1. **Inventory**: Catalog verified physical texture spans (offset, size, hash, name)
+2. **Encode**: Convert user PNGs to native GameCube formats
+3. **Replace**: Hash-verify original, overwrite exact byte span (fail closed on drift)
+
+The editor does NOT decode original textures for preview. The preview is the
+user's imported art. This matches how the 2K mod works.
+
+## Status
+
+- ✅ ODUA/RTXT chunk structure mapped
+- ✅ Texture inventory built (65 textures in 100A.IFF, e.g., elbow01)
+- ✅ I8 and RGB5A3 encoders written and roundtrip-verified
+- ✅ Replacement tool with hash verification
+- ❌ Format/dimensions NOT confirmed (guessed: 64x64 I8 for body parts)
+- ❌ Pixel data offsets NOT confirmed
+- ❌ No Dolphin verification
+
+## Files
+
+- `ncaa_texture.py` - Main replacement tool
+- `texture_inventory.json` - Catalog of texture spans
+- `encoders/gcn_i8.py` - I8 encoder/decoder (8x4 tiles, grayscale)
+- `encoders/gcn_rgb5a3.py` - RGB5A3 encoder/decoder (4x4 tiles, color)
+- `docs/` - Research documentation
+
+## Usage
+
+```bash
+# Replace a texture (copies ISO, never modifies original)
+# WARNING: Format is guessed, verify in Dolphin first!
+python ncaa_texture.py game.iso elbow01 my_elbow.png game_mod.iso
+```
+
+## Model Research
+
+See `docs/MODEL_RESEARCH.md` for findings on ENV files (stadium scenes with
+TCRD chunks) and PLAYERS.IFF. Full GameCube display-list parsing needs
+dedicated RE work.

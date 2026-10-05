@@ -1,0 +1,57 @@
+[
+  {
+    "source_file": "100A.IFF",
+    "texture_name": "elbow01",
+    "dat_offset": "0x17041c8",
+    "iso_offset": "0x17c9f30",
+    "size": 4184,
+    "sha256": "398250ac92c60a6c...",
+    "format": "unknown",
+    "dimensions": "unknown",
+    "status": "Research boundary - format not identified"
+  },
+  {
+    "source_file": "100A.IFF",
+    "texture_name": "elbow02",
+    "dat_offset": "0x1705258",
+    "iso_offset": "0x17cafc0",
+    "size": 4184,
+    "sha256": "5fe9bb808c63cb96...",
+    "format": "unknown",
+    "dimensions": "unknown",
+    "status": "Research boundary - format not identified"
+  },
+  {
+    "source_file": "100A.IFF",
+    "texture_name": "elbow03",
+    "dat_offset": "0x17062e8",
+    "iso_offset": "0x17cc050",
+    "size": 4184,
+    "sha256": "93d4828a044a5948...",
+    "format": "unknown",
+    "dimensions": "unknown",
+    "status": "Research boundary - format not identified"
+  },
+  {
+    "source_file": "100A.IFF",
+    "texture_name": "elbow04",
+    "dat_offset": "0x1707378",
+    "iso_offset": "0x17cd0e0",
+    "size": 4184,
+    "sha256": "23c2668d45a929f2...",
+    "format": "unknown",
+    "dimensions": "unknown",
+    "status": "Research boundary - format not identified"
+  },
+  {
+    "source_file": "100A.IFF",
+    "texture_name": "elbow05",
+    "dat_offset": "0x1708408",
+    "iso_offset": "0x17ce170",
+    "size": 4184,
+    "sha256": "f0974040fee15b16...",
+    "format": "unknown",
+    "dimensions": "unknown",
+    "status": "Research boundary - format not identified"
+  }
+]
