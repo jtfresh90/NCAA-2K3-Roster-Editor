@@ -1,0 +1,44 @@
+name: Build Windows EXE
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install PyQt5 pyinstaller pillow
+    
+    - name: Build EXE with PyInstaller
+      run: |
+        pyinstaller --onefile --windowed `
+          --name "NCAA2K3-Roster-Editor" `
+          --add-data "team_names.txt;." `
+          ncaa2k3_roster_editor_v2.py
+    
+    - name: Upload EXE as release asset
+      if: github.event_name == 'release'
+      uses: softprops/action-gh-release@v1
+      with:
+        files: dist/NCAA2K3-Roster-Editor.exe
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Upload EXE as artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: NCAA2K3-Roster-Editor-Windows
+        path: dist/NCAA2K3-Roster-Editor.exe
