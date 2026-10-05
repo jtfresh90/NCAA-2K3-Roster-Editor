@@ -1,0 +1,124 @@
+0: Air Force
+1: Akron
+2: Ala. Birmingham
+3: Alabama
+4: Arizona
+5: Arizona State
+6: Arkansas
+7: Arkansas State
+8: Army
+9: Auburn
+10: Ball State
+11: Baylor
+12: Boise State
+13: Boston College
+14: Bowling Green State
+15: Buffalo
+16: California
+17: Central Florida
+18: Central Michigan
+19: Cincinnati
+20: Clemson
+21: Colorado
+22: Colorado State
+23: Connecticut
+24: Duke
+25: East Carolina
+26: Eastern Michigan
+27: Florida
+28: Florida State
+29: Fresno State
+30: Georgia
+31: Georgia Tech
+32: Hawaii
+33: Houston
+34: Idaho
+35: Illinois
+36: Indiana
+37: Iowa
+38: Iowa State
+39: Kansas
+40: Kansas State
+41: Kent State
+42: Kentucky
+43: Louisiana State
+44: Louisiana Tech
+45: Louisiana-Lafayette
+46: Louisiana-Monroe
+47: Louisville
+48: Marshall
+49: Maryland
+50: Memphis
+51: Miami
+52: Miami University
+53: Michigan
+54: Michigan State
+55: Middle Tennessee St.
+56: Minnesota
+57: Mississippi State
+58: Missouri
+59: Navy
+60: NC State
+61: Nebraska
+62: Nevada
+63: New Mexico
+64: New Mexico State
+65: North Carolina
+66: North Texas
+67: Northern Illinois
+68: Northwestern
+69: Notre Dame
+70: Ohio
+71: Ohio State
+72: Oklahoma
+73: Oklahoma State
+74: Ole Miss
+75: Oregon
+76: Oregon State
+77: Penn State
+78: Pittsburgh
+79: Purdue
+80: Rice
+81: Rutgers
+82: San Diego State
+83: San Jose State
+84: South Carolina
+85: South Florida
+86: Southern Miss
+87: Stanford
+88: Syracuse
+89: Temple
+90: Tennessee
+91: Texas
+92: Texas A&M
+93: Texas Tech
+94: Toledo
+95: Troy State
+96: Tulane
+97: Tulsa
+98: Utah
+99: Utah State
+100: Vanderbilt
+101: Virginia
+102: Virginia Tech
+103: Wake Forest
+104: Washington
+105: Washington State
+106: West Virginia
+107: Western Michigan
+108: Wisconsin
+109: Wyoming
+110: Chattanooga
+111: Eastern Illinois
+112: Furman
+113: Georgia Southern
+114: Montana
+115: Northern Iowa
+116: Samford
+117: SE Missouri State
+118: Southern Utah
+119: Weber State
+120: North All-Stars
+121: South All-Stars
+122: East All-Stars
+123: West All-Stars
