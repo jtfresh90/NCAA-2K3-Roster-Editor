@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.json">
+<title>NCAA 2K3 Roster Editor</title>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; margin: 0; padding: 0; background: #1a1a2e; color: #eee; }
+  .header { background: #16213e; padding: 15px; text-align: center; position: sticky; top: 0; z-index: 100; }
+  .header h1 { margin: 0; font-size: 1.2em; color: #f0a500; }
+  .container { padding: 10px; max-width: 800px; margin: 0 auto; }
+  .btn { display: block; width: 100%; padding: 15px; margin: 10px 0; background: #0f3460; color: white; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; }
+  .btn:active { background: #133b6e; }
+  .btn-primary { background: #e94560; }
+  .btn-primary:active { background: #c73e54; }
+  .team-list, .player-list { list-style: none; padding: 0; margin: 0; }
+  .team-item, .player-item { padding: 12px; margin: 5px 0; background: #16213e; border-radius: 8px; cursor: pointer; }
+  .team-item:active, .player-item:active { background: #1e2a4a; }
+  .rating-row { display: flex; align-items: center; padding: 8px 0; border-bottom: 1px solid #2a2a4a; }
+  .rating-label { flex: 1; font-size: 14px; }
+  .rating-input { width: 70px; padding: 8px; font-size: 16px; text-align: center; background: #0f3460; color: white; border: 1px solid #2a2a4a; border-radius: 4px; }
+  .back-btn { background: #2a2a4a; margin-bottom: 10px; }
+  .hidden { display: none; }
+  #fileInput { display: none; }
+  .status { padding: 10px; text-align: center; color: #888; font-size: 14px; }
+  input[type=number] { -moz-appearance: textfield; }
+  input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>🏈 NCAA 2K3 Roster Editor</h1>
+</div>
+<div class="container">
+  <div id="loadScreen">
+    <p class="status">Select your NCAA College Football 2K3 (USA) ISO to begin.<br>Work on a COPY, never the original!</p>
+    <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()">📁 Load ISO File</button>
+    <input type="file" id="fileInput" accept=".iso,.nkit.iso">
+    <p class="status" id="loadStatus"></p>
+  </div>
+  
+  <div id="teamScreen" class="hidden">
+    <button class="btn back-btn" onclick="showScreen('loadScreen')">← Back</button>
+    <h2>Select Team</h2>
+    <ul class="team-list" id="teamList"></ul>
+  </div>
+  
+  <div id="playerScreen" class="hidden">
+    <button class="btn back-btn" onclick="showScreen('teamScreen')">← Back to Teams</button>
+    <h2 id="playerTeamName">Players</h2>
+    <ul class="player-list" id="playerList"></ul>
+  </div>
+  
+  <div id="editorScreen" class="hidden">
+    <button class="btn back-btn" onclick="showScreen('playerScreen')">← Back to Players</button>
+    <h2 id="editorPlayerName">Edit Player</h2>
+    <div id="ratingsContainer"></div>
+    <button class="btn btn-primary" onclick="saveRatings()">💾 Save Ratings</button>
+    <button class="btn" onclick="downloadISO()">⬇️ Download Modified ISO</button>
+  </div>
+</div>
+
+<script>
+// ============================================================================
+// NCAA 2K3 Roster Editor - Web Version
+// Ported from ncaa_rost.py (Python) to JavaScript
+// ============================================================================
+
+// Constants (from ncaa_rost.py)
+const DAT_MAGIC = [0x44, 0x41, 0x54, 0x00]; // 'DAT\0'
+const DAT_RECORD_SIZE = 24;
+const DAT_RECORD_TABLE_OFF = 0x20;
+const DAT_DATA_BASE_OFF = 0x0C;
+const ROST_RECORD_NUM = 134;
+const ROST_SIZE = 1232576;
+const PLAYER_SECTION_OFF = 0x248BD;
+const PLAYER_HEADER_SKIP = 64;
+const PLAYER_REC_SIZE = 148;
+const PLAYER_COUNT = 7091;
+const PLAYER_BASE = PLAYER_SECTION_OFF + PLAYER_HEADER_SKIP;
+const RATING_OFF = 43;
+const RATING_COUNT = 16;
+const TEAM_SECTION_OFF = 0x4E91;
+const TEAM_REC_SIZE = 116;
+const TEAM_COUNT = 160;
+const ISO_DAT_OFF = 0xC5D68;
+
+// Global state
+let isoData = null;      // Uint8Array of ISO
+let rostData = null;     // Uint8Array of ROST file
+let rostBase = 0;        // Offset of ROST in ISO
+let currentTeam = 0;
+let currentPlayer = 0;
+let modified = false;
+
+// ============================================================================
+// Binary helpers
+// ============================================================================
+function readU32BE(data, offset) {
+  return (data[offset] << 24) | (data[offset+1] << 16) | (data[offset+2] << 8) | data[offset+3];
+}
+
+function writeU32BE(data, offset, value) {
+  data[offset] = (value >> 24) & 0xFF;
+  data[offset+1] = (value >> 16) & 0xFF;
+  data[offset+2] = (value >> 8) & 0xFF;
+  data[offset+3] = value & 0xFF;
+}
+
+// ============================================================================
+// DAT Archive Parser
+// ============================================================================
+function parseDatArchive() {
+  // Verify DAT magic at ISO_DAT_OFF
+  for (let i = 0; i < 4; i++) {
+    if (isoData[ISO_DAT_OFF + i] !== DAT_MAGIC[i]) {
+      throw new Error('Not a valid DAT archive');
+    }
+  }
+  
+  const dataBase = readU32BE(isoData, ISO_DAT_OFF + DAT_DATA_BASE_OFF);
+  const records = [];
+  let off = ISO_DAT_OFF + DAT_RECORD_TABLE_OFF;
+  
+  for (let i = 0; i < 2000; i++) {
+    if (off + DAT_RECORD_SIZE > isoData.length) break;
+    const size = readU32BE(isoData, off);
+    const field1 = readU32BE(isoData, off + 4);
+    const hashId = readU32BE(isoData, off + 8);
+    const z1 = readU32BE(isoData, off + 12);
+    const z2 = readU32BE(isoData, off + 16);
+    const endOffset = readU32BE(isoData, off + 20);
+    
+    if (endOffset > 2000000000 || z1 !== 0 || z2 !== 0) break;
+    
+    const start = dataBase + endOffset - size;
+    const end = dataBase + endOffset;
+    records.push({
+      index: i,
+      size: size,
+      datStart: ISO_DAT_OFF + start,
+      datEnd: ISO_DAT_OFF + end,
+    });
+    off += DAT_RECORD_SIZE;
+    
+    // Check for name table
+    if (off < isoData.length && isoData[off] >= 32 && isoData[off] < 127) {
+      break;
+    }
+  }
+  
+  return records;
+}
+
+function getRostRecord(records) {
+  const rec = records[ROST_RECORD_NUM];
+  if (!rec) throw new Error('ROST record not found');
+  rostBase = rec.datStart;
+  rostData = isoData.slice(rec.datStart, rec.datEnd);
+  
+  // Verify ROST magic (TSOR = 'ROST' little-endian)
+  if (rostData[0] !== 0x54 || rostData[1] !== 0x53 || 
+      rostData[2] !== 0x4F || rostData[3] !== 0x52) {
+    throw new Error('Invalid ROST magic');
+  }
+  return rostData;
+}
+
+// ============================================================================
+// Player / Team Access
+// ============================================================================
+function getPlayerRecord(index) {
+  const off = PLAYER_BASE + (index * PLAYER_REC_SIZE);
+  return rostData.slice(off, off + PLAYER_REC_SIZE);
+}
+
+function getPlayerRatings(index) {
+  const rec = getPlayerRecord(index);
+  const ratings = [];
+  for (let i = 0; i < RATING_COUNT; i++) {
+    ratings.push(rec[RATING_OFF + i]);
+  }
+  return ratings;
+}
+
+function setPlayerRatings(index, ratings) {
+  const off = PLAYER_BASE + (index * PLAYER_REC_SIZE) + RATING_OFF;
+  for (let i = 0; i < RATING_COUNT; i++) {
+    const val = Math.max(0, Math.min(99, ratings[i]));
+    rostData[off + i] = val;
+    isoData[rostBase + off + i] = val;
+  }
+  modified = true;
+}
+
+function getTeamPlayerCount(teamIndex) {
+  const off = TEAM_SECTION_OFF + (teamIndex * TEAM_REC_SIZE) + 114;
+  return rostData[off];
+}
+
+// Team names (simplified - using Team N for now)
+// Full UTF-16LE parsing would go here
+function getTeamName(index) {
+  return 'Team ' + index;
+}
+
+// ============================================================================
+// UI Functions
+// ============================================================================
+function showScreen(id) {
+  ['loadScreen', 'teamScreen', 'playerScreen', 'editorScreen'].forEach(s => {
+    document.getElementById(s).classList.add('hidden');
+  });
+  document.getElementById(id).classList.remove('hidden');
+}
+
+function loadISO(file) {
+  const status = document.getElementById('loadStatus');
+  status.textContent = 'Loading... (this may take a moment for 1.3GB file)';
+  
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      isoData = new Uint8Array(e.target.result);
+      status.textContent = 'Parsing DAT archive...';
+      
+      // Parse DAT and get ROST
+      const records = parseDatArchive();
+      getRostRecord(records);
+      
+      status.textContent = 'Loaded! Found ' + PLAYER_COUNT + ' players.';
+      buildTeamList();
+      showScreen('teamScreen');
+    } catch (err) {
+      status.textContent = 'Error: ' + err.message;
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function buildTeamList() {
+  const list = document.getElementById('teamList');
+  list.innerHTML = '';
+  for (let i = 0; i < TEAM_COUNT; i++) {
+    const li = document.createElement('li');
+    li.className = 'team-item';
+    li.textContent = getTeamName(i);
+    li.onclick = () => selectTeam(i);
+    list.appendChild(li);
+  }
+}
+
+function selectTeam(index) {
+  currentTeam = index;
+  document.getElementById('playerTeamName').textContent = getTeamName(index) + ' Players';
+  
+  const list = document.getElementById('playerList');
+  list.innerHTML = '';
+  
+  // Calculate player range for this team (simplified - sequential)
+  // Note: Full team mapping requires parsing team player counts
+  const playersPerTeam = Math.floor(PLAYER_COUNT / TEAM_COUNT);
+  const start = index * playersPerTeam;
+  const end = Math.min(start + playersPerTeam, PLAYER_COUNT);
+  
+  for (let i = start; i < end; i++) {
+    const li = document.createElement('li');
+    li.className = 'player-item';
+    li.textContent = 'Player ' + i;
+    li.onclick = () => selectPlayer(i);
+    list.appendChild(li);
+  }
+  
+  showScreen('playerScreen');
+}
+
+function selectPlayer(index) {
+  currentPlayer = index;
+  document.getElementById('editorPlayerName').textContent = 'Edit Player ' + index;
+  
+  const ratings = getPlayerRatings(index);
+  const container = document.getElementById('ratingsContainer');
+  container.innerHTML = '';
+  
+  const labels = ['Speed', 'Strength', 'Agility', 'Awareness', 'Catching', 'Tackling', 
+                  'Throw Power', 'Throw Acc', 'Kick Power', 'Kick Acc', 'Stamina', 
+                  'Injury', 'Toughness', 'Discipline', 'Clutch', 'Overall'];
+  
+  ratings.forEach((val, i) => {
+    const div = document.createElement('div');
+    div.className = 'rating-row';
+    div.innerHTML = `
+      <span class="rating-label">${labels[i] || 'Rating ' + (i+1)}</span>
+      <input type="number" class="rating-input" id="rating_${i}" 
+             value="${val}" min="0" max="99" inputmode="numeric">
+    `;
+    container.appendChild(div);
+  });
+  
+  showScreen('editorScreen');
+}
+
+function saveRatings() {
+  const ratings = [];
+  for (let i = 0; i < RATING_COUNT; i++) {
+    const input = document.getElementById('rating_' + i);
+    ratings.push(parseInt(input.value) || 0);
+  }
+  setPlayerRatings(currentPlayer, ratings);
+  alert('Ratings saved!');
+}
+
+function downloadISO() {
+  if (!modified) {
+    alert('No changes to save.');
+    return;
+  }
+  const blob = new Blob([isoData], {type: 'application/octet-stream'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'ncaa2k3_modified.iso';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// Event listeners
+document.getElementById('fileInput').addEventListener('change', function(e) {
+  if (e.target.files[0]) {
+    loadISO(e.target.files[0]);
+  }
+});
+</script>
+</body>
+</html>
