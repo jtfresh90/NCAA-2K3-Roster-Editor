@@ -5,13 +5,23 @@ ncaa_rost.py - Core library for NCAA College Football 2K3 (GameCube) roster edit
 Reverse-engineered format notes:
 - game.dat is a Sega DAT archive with 24-byte BE records at +0x20
 - ROST file (rec134): 1,232,576 bytes, contains roster database
-- Player section: 7091 entries at ROST+0x248BD, 148 bytes each (after 64-byte zero header)
-- Player ratings: 16 bytes at record offset 43-58 (values ~25-87)
-- Team names: UTF-16LE at ROST+0x129BD3+ (152+ teams)
+- Player section: 7091 entries at ROST+0x248FD, 148 bytes each
+- Player names: "QB #12" format (position + number, no licensed names)
+  - Position: byte 31 (0=QB, 1=RB, 2=FB, 3=WR, 4=TE, 5=OT, 6=OG, 7=C,
+               8=DT, 9=DE, 10=LB, 11=CB, 12=SS, 13=FS, 14=K, 15=P)
+  - Jersey number: byte 18
+- Team names: UTF-16LE at ROST+0x129C13+ (124 teams mapped)
 
-Status: v1 - Player ratings read/write verified. Team mapping and name
-decryption are v2. All offsets verified against NCAA College Football 2K3 (USA),
-Game ID GNAE8P.
+CRITICAL CORRECTION (Oct 6 2026):
+- Bytes 43-58 were previously misidentified as "16 ratings". They are
+  actually an unknown 16-byte field (possibly encrypted data, checksum,
+  or ID). The editor v1.0.0-v1.4.0 was corrupting this field, not ratings.
+- Actual rating offsets are UNKNOWN. Candidate bytes 61-70 show rating-like
+  values but no clean 16-byte block has been identified.
+- DO NOT use RATING_OFF=43. Ratings are RESEARCH ONLY.
+
+Status: v1.5.0 - QB #12 names correct. Ratings research-gated.
+All offsets verified against NCAA College Football 2K3 (USA), Game ID GNAE8P.
 """
 
 import struct
@@ -37,9 +47,20 @@ PLAYER_REC_SIZE = 148
 PLAYER_COUNT = 7091
 PLAYER_BASE = PLAYER_SECTION_OFF + PLAYER_HEADER_SKIP  # 0x248FD
 
-# Rating field offsets within player record (verified: values 25-87)
-RATING_OFF = 43
-RATING_COUNT = 16
+# Player name fields (QB #12 format - no licensed names due to NCAA rights)
+POSITION_OFF = 31  # u8: 0=QB, 1=RB, 2=FB, 3=WR, 4=TE, 5=OT, 6=OG, 7=C,
+                   #     8=DT, 9=DE, 10=LB, 11=CB, 12=SS, 13=FS, 14=K, 15=P
+NUMBER_OFF = 18    # u8: jersey number (1-99)
+
+POSITION_NAMES = ['QB', 'RB', 'FB', 'WR', 'TE', 'OT', 'OG', 'C',
+                  'DT', 'DE', 'LB', 'CB', 'SS', 'FS', 'K', 'P']
+
+# RATINGS: UNKNOWN - DO NOT USE
+# Bytes 43-58 were misidentified as ratings in v1.0.0-v1.4.0.
+# They are an unknown 16-byte field. Actual rating offsets not yet found.
+# Candidate: bytes 61-70 show rating-like values but unverified.
+# RATING_OFF = 43  # DEPRECATED - DO NOT USE - NOT RATINGS
+# RATING_COUNT = 16
 
 # Team section constants (160 entries at ROST+0x4E91, 116 bytes each)
 TEAM_SECTION_OFF = 0x4E91
@@ -126,26 +147,30 @@ class Player:
         return struct.unpack('>I', self.data[4:8])[0]
     
     @property
-    def ratings(self):
-        """16 rating bytes (values 25-87)."""
-        return list(self.data[RATING_OFF:RATING_OFF+RATING_COUNT])
+    def position(self):
+        """Position code (u8 at +31): 0=QB, 1=RB, etc."""
+        return self.data[POSITION_OFF]
     
-    @ratings.setter
-    def ratings(self, values):
-        if len(values) != RATING_COUNT:
-            raise ValueError(f"Must provide {RATING_COUNT} ratings")
-        for v in values:
-            if not 0 <= v <= 255:
-                raise ValueError(f"Rating {v} out of byte range")
-        self.data[RATING_OFF:RATING_OFF+RATING_COUNT] = bytes(values)
+    @property
+    def position_name(self):
+        """Position abbreviation (QB, RB, WR, etc.)."""
+        pos = self.position
+        return POSITION_NAMES[pos] if pos < len(POSITION_NAMES) else f"POS{pos}"
     
-    def set_rating(self, idx, value):
-        """Set a single rating (0-15) to value (0-255)."""
-        if not 0 <= idx < RATING_COUNT:
-            raise ValueError(f"Rating index {idx} out of range 0-{RATING_COUNT-1}")
-        if not 0 <= value <= 255:
-            raise ValueError(f"Rating value {value} out of byte range")
-        self.data[RATING_OFF + idx] = value
+    @property
+    def jersey_number(self):
+        """Jersey number (u8 at +18)."""
+        return self.data[NUMBER_OFF]
+    
+    @property
+    def display_name(self):
+        """Display name in 'QB #12' format (no licensed names)."""
+        return f"{self.position_name} #{self.jersey_number}"
+    
+    # RATINGS: RESEARCH ONLY - DO NOT USE
+    # The `ratings` property below is DEPRECATED and REMOVED.
+    # Bytes 43-58 are NOT ratings. Actual rating offsets unknown.
+    # See module docstring for details.
     
     def get_rating(self, idx):
         """Get a single rating (0-15)."""

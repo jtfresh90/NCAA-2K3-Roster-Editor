@@ -82,8 +82,15 @@ const PLAYER_HEADER_SKIP = 64;
 const PLAYER_REC_SIZE = 148;
 const PLAYER_COUNT = 7091;
 const PLAYER_BASE = PLAYER_SECTION_OFF + PLAYER_HEADER_SKIP;
-const RATING_OFF = 43;
-const RATING_COUNT = 16;
+// Player names: "QB #12" format (no licensed names due to NCAA rights)
+// Position: byte 31, Jersey number: byte 18
+const POSITION_OFF = 31;
+const NUMBER_OFF = 18;
+const POSITION_NAMES = ['QB','RB','FB','WR','TE','OT','OG','C','DT','DE','LB','CB','SS','FS','K','P'];
+// RATINGS: UNKNOWN - Bytes 43-58 are NOT ratings (v1.0.0-v1.4.0 bug).
+// Rating editor disabled in v1.5.0 pending format research.
+// const RATING_OFF = 43;  // DEPRECATED - DO NOT USE
+// const RATING_COUNT = 16;
 const TEAM_SECTION_OFF = 0x4E91;
 const TEAM_REC_SIZE = 116;
 const TEAM_COUNT = 160;
@@ -178,34 +185,155 @@ function getPlayerRecord(index) {
   return rostData.slice(off, off + PLAYER_REC_SIZE);
 }
 
-function getPlayerRatings(index) {
+// Player display name in "QB #12" format (no licensed names due to NCAA rights)
+function getPlayerName(index) {
   const rec = getPlayerRecord(index);
-  const ratings = [];
-  for (let i = 0; i < RATING_COUNT; i++) {
-    ratings.push(rec[RATING_OFF + i]);
-  }
-  return ratings;
+  const pos = rec[POSITION_OFF];
+  const num = rec[NUMBER_OFF];
+  const posName = POSITION_NAMES[pos] || ('POS' + pos);
+  return posName + ' #' + num;
 }
 
-function setPlayerRatings(index, ratings) {
-  const off = PLAYER_BASE + (index * PLAYER_REC_SIZE) + RATING_OFF;
-  for (let i = 0; i < RATING_COUNT; i++) {
-    const val = Math.max(0, Math.min(99, ratings[i]));
-    rostData[off + i] = val;
-    isoData[rostBase + off + i] = val;
-  }
-  modified = true;
-}
+// RATINGS: DISABLED in v1.5.0 - Offsets unknown (bytes 43-58 are NOT ratings)
+// function getPlayerRatings(index) { ... }  // REMOVED
+// function setPlayerRatings(index, ratings) { ... }  // REMOVED
 
 function getTeamPlayerCount(teamIndex) {
   const off = TEAM_SECTION_OFF + (teamIndex * TEAM_REC_SIZE) + 114;
   return rostData[off];
 }
 
-// Team names (simplified - using Team N for now)
-// Full UTF-16LE parsing would go here
+// Team names: 124 mapped from team_names.txt (matches desktop v2); indexes 124-159
+// fall back to "Team N". Full UTF-16LE parsing would go here
+const TEAM_NAMES = [
+  "Air Force",
+  "Akron",
+  "Ala. Birmingham",
+  "Alabama",
+  "Arizona",
+  "Arizona State",
+  "Arkansas",
+  "Arkansas State",
+  "Army",
+  "Auburn",
+  "Ball State",
+  "Baylor",
+  "Boise State",
+  "Boston College",
+  "Bowling Green State",
+  "Buffalo",
+  "California",
+  "Central Florida",
+  "Central Michigan",
+  "Cincinnati",
+  "Clemson",
+  "Colorado",
+  "Colorado State",
+  "Connecticut",
+  "Duke",
+  "East Carolina",
+  "Eastern Michigan",
+  "Florida",
+  "Florida State",
+  "Fresno State",
+  "Georgia",
+  "Georgia Tech",
+  "Hawaii",
+  "Houston",
+  "Idaho",
+  "Illinois",
+  "Indiana",
+  "Iowa",
+  "Iowa State",
+  "Kansas",
+  "Kansas State",
+  "Kent State",
+  "Kentucky",
+  "Louisiana State",
+  "Louisiana Tech",
+  "Louisiana-Lafayette",
+  "Louisiana-Monroe",
+  "Louisville",
+  "Marshall",
+  "Maryland",
+  "Memphis",
+  "Miami",
+  "Miami University",
+  "Michigan",
+  "Michigan State",
+  "Middle Tennessee St.",
+  "Minnesota",
+  "Mississippi State",
+  "Missouri",
+  "Navy",
+  "NC State",
+  "Nebraska",
+  "Nevada",
+  "New Mexico",
+  "New Mexico State",
+  "North Carolina",
+  "North Texas",
+  "Northern Illinois",
+  "Northwestern",
+  "Notre Dame",
+  "Ohio",
+  "Ohio State",
+  "Oklahoma",
+  "Oklahoma State",
+  "Ole Miss",
+  "Oregon",
+  "Oregon State",
+  "Penn State",
+  "Pittsburgh",
+  "Purdue",
+  "Rice",
+  "Rutgers",
+  "San Diego State",
+  "San Jose State",
+  "South Carolina",
+  "South Florida",
+  "Southern Miss",
+  "Stanford",
+  "Syracuse",
+  "Temple",
+  "Tennessee",
+  "Texas",
+  "Texas A&M",
+  "Texas Tech",
+  "Toledo",
+  "Troy State",
+  "Tulane",
+  "Tulsa",
+  "Utah",
+  "Utah State",
+  "Vanderbilt",
+  "Virginia",
+  "Virginia Tech",
+  "Wake Forest",
+  "Washington",
+  "Washington State",
+  "West Virginia",
+  "Western Michigan",
+  "Wisconsin",
+  "Wyoming",
+  "Chattanooga",
+  "Eastern Illinois",
+  "Furman",
+  "Georgia Southern",
+  "Montana",
+  "Northern Iowa",
+  "Samford",
+  "SE Missouri State",
+  "Southern Utah",
+  "Weber State",
+  "North All-Stars",
+  "South All-Stars",
+  "East All-Stars",
+  "West All-Stars"
+];
+
 function getTeamName(index) {
-  return 'Team ' + index;
+  return (index >= 0 && index < TEAM_NAMES.length) ? TEAM_NAMES[index] : 'Team ' + index;
 }
 
 // ============================================================================
@@ -270,7 +398,7 @@ function selectTeam(index) {
   for (let i = start; i < end; i++) {
     const li = document.createElement('li');
     li.className = 'player-item';
-    li.textContent = 'Player ' + i;
+    li.textContent = getPlayerName(i);
     li.onclick = () => selectPlayer(i);
     list.appendChild(li);
   }
@@ -280,38 +408,25 @@ function selectTeam(index) {
 
 function selectPlayer(index) {
   currentPlayer = index;
-  document.getElementById('editorPlayerName').textContent = 'Edit Player ' + index;
+  const playerName = getPlayerName(index);
+  document.getElementById('editorPlayerName').textContent = playerName + ' (Player ' + index + ')';
   
-  const ratings = getPlayerRatings(index);
   const container = document.getElementById('ratingsContainer');
-  container.innerHTML = '';
-  
-  const labels = ['Speed', 'Strength', 'Agility', 'Awareness', 'Catching', 'Tackling', 
-                  'Throw Power', 'Throw Acc', 'Kick Power', 'Kick Acc', 'Stamina', 
-                  'Injury', 'Toughness', 'Discipline', 'Clutch', 'Overall'];
-  
-  ratings.forEach((val, i) => {
-    const div = document.createElement('div');
-    div.className = 'rating-row';
-    div.innerHTML = `
-      <span class="rating-label">${labels[i] || 'Rating ' + (i+1)}</span>
-      <input type="number" class="rating-input" id="rating_${i}" 
-             value="${val}" min="0" max="99" inputmode="numeric">
-    `;
-    container.appendChild(div);
-  });
+  container.innerHTML = `
+    <div style="padding: 20px; text-align: center; color: #888;">
+      <p><strong>${playerName}</strong></p>
+      <p>Rating editing disabled in v1.5.0</p>
+      <p style="font-size: 12px;">Rating byte offsets are under research.<br>
+      Bytes 43-58 (used in v1.0.0-v1.4.0) are NOT ratings.</p>
+    </div>
+  `;
   
   showScreen('editorScreen');
 }
 
+// Rating editing disabled in v1.5.0 - offsets unknown
 function saveRatings() {
-  const ratings = [];
-  for (let i = 0; i < RATING_COUNT; i++) {
-    const input = document.getElementById('rating_' + i);
-    ratings.push(parseInt(input.value) || 0);
-  }
-  setPlayerRatings(currentPlayer, ratings);
-  alert('Ratings saved!');
+  alert('Rating editing is disabled in v1.5.0. Offsets are under research.');
 }
 
 function downloadISO() {
