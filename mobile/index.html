@@ -814,6 +814,7 @@ function selectPlayer(index) {
     'Coverage*', 'Pass Blocking*', 'Kick Power*', 'Kick Accuracy*'
   ];
   let html = `<div style="padding: 10px; text-align: center;"><strong>${playerName}</strong></div>`;
+  html += `<div style="padding: 5px; text-align: center; color: #888;"><small>* = unverified rating name</small></div>`;
   for (let i = 0; i < RATING_COUNT; i++) {
     html += `
       <div class="rating-row">
@@ -823,9 +824,42 @@ function selectPlayer(index) {
                onchange="onRatingChanged(${index})">
       </div>`;
   }
+  // Appearance/Equipment fields (statistically identified, UNVERIFIED)
+  const APPEARANCE_FIELDS = [
+    [17, 'Skin Tone?*', 0, 4],
+    [19, 'Face Mask?*', 0, 2],
+    [20, 'Visor?*', 0, 1],
+    [21, 'Equipment 1?*', 0, 6],
+    [22, 'Equipment 2?*', 0, 6],
+    [24, 'Equipment 3?*', 0, 8],
+    [25, 'Sleeves?*', 0, 2],
+    [27, 'Equipment 4?*', 0, 2],
+    [28, 'Equipment 5?*', 1, 19],
+    [29, 'Equipment 6?*', 0, 5],
+    [30, 'Equipment 7?*', 0, 1],
+  ];
+  html += `<div style="padding: 10px; text-align: center; margin-top: 10px;"><strong>Appearance/Equipment* (*=unverified)</strong></div>`;
+  const rec = getPlayerRecord(index);
+  for (const [off, name, minV, maxV] of APPEARANCE_FIELDS) {
+    html += `
+      <div class="rating-row">
+        <span class="rating-label">${name}</span>
+        <input type="number" class="rating-input" min="${minV}" max="${maxV}"
+               value="${rec[off]}" data-appear="${off}"
+               onchange="onAppearanceChanged(${index}, ${off}, this.value)">
+      </div>`;
+  }
   container.innerHTML = html;
   
   showScreen('editorScreen');
+}
+
+function onAppearanceChanged(playerIndex, offset, value) {
+  const off = PLAYER_BASE + (playerIndex * PLAYER_REC_SIZE) + offset;
+  let v = parseInt(value, 10);
+  if (isNaN(v)) v = 0;
+  rostData[off] = v;
+  isoModified = true;
 }
 
 // Rating editing (v1.6.0+)

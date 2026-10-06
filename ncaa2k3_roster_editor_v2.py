@@ -160,6 +160,20 @@ class RosterEditorWindow(QMainWindow):
         
         ratings_layout.addWidget(info_group)
         
+        # Appearance/Equipment group (statistically identified, unverified)
+        from ncaa_rost import Player
+        appear_group = QGroupBox("Appearance/Equipment* (*=unverified)")
+        appear_form = QFormLayout(appear_group)
+        self.appear_spins = {}  # offset -> QSpinBox
+        for offset, (name, min_v, max_v) in Player.APPEARANCE_FIELDS.items():
+            spin = QSpinBox()
+            spin.setRange(min_v, max_v)
+            spin.setEnabled(False)
+            spin.valueChanged.connect(lambda v, off=offset: self._on_appearance_changed(off, v))
+            appear_form.addRow(f"{name} (+{offset}):", spin)
+            self.appear_spins[offset] = spin
+        ratings_layout.addWidget(appear_group)
+        
         ratings_group = QGroupBox("Ratings (16 attributes)")
         form = QFormLayout(ratings_group)
         
@@ -248,7 +262,25 @@ class RosterEditorWindow(QMainWindow):
             spin.setEnabled(True)
             spin.blockSignals(False)
         
+        # Populate appearance fields
+        for offset, spin in self.appear_spins.items():
+            spin.blockSignals(True)
+            spin.setValue(p.get_appearance(offset))
+            spin.setEnabled(True)
+            spin.blockSignals(False)
+        
         self.save_btn.setEnabled(True)
+    
+    def _on_appearance_changed(self, offset, value):
+        if self.current_player_idx < 0:
+            return
+        try:
+            p = self.editor.get_player(self.current_player_idx)
+            p.set_appearance(offset, value)
+            self.editor.write_player(self.current_player_idx)
+            self.statusBar().showMessage(f"Appearance +{offset} set to {value}", 2000)
+        except Exception as e:
+            QMessageBox.warning(self, "Error", f"Failed to set appearance:\n{e}")
     
     def _on_position_changed(self, pos_idx):
         if self.current_player_idx < 0:

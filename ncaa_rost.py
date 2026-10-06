@@ -194,6 +194,38 @@ class Player:
         """Jersey number (u8 at +18)."""
         return self.data[NUMBER_OFF]
     
+    # Equipment/Appearance fields (statistically identified, UNVERIFIED)
+    # Small enum values (0-8) with limited unique values across players
+    # Users can experiment; labels are generic until verified in-game
+    APPEARANCE_FIELDS = {
+        17: ('Skin Tone?', 0, 4),
+        19: ('Face Mask?', 0, 2),
+        20: ('Visor?', 0, 1),
+        21: ('Equipment 1?', 0, 6),
+        22: ('Equipment 2?', 0, 6),
+        24: ('Equipment 3?', 0, 8),
+        25: ('Sleeves?', 0, 2),
+        27: ('Equipment 4?', 0, 2),
+        28: ('Equipment 5?', 1, 19),
+        29: ('Equipment 6?', 0, 5),
+        30: ('Equipment 7?', 0, 1),
+    }
+    
+    def get_appearance(self, offset):
+        """Get appearance/equipment value at byte offset."""
+        if offset in self.APPEARANCE_FIELDS:
+            return self.data[offset]
+        raise ValueError(f"Offset {offset} not a known appearance field")
+    
+    def set_appearance(self, offset, value):
+        """Set appearance/equipment value at byte offset."""
+        if offset not in self.APPEARANCE_FIELDS:
+            raise ValueError(f"Offset {offset} not a known appearance field")
+        name, min_v, max_v = self.APPEARANCE_FIELDS[offset]
+        if not min_v <= value <= max_v:
+            raise ValueError(f"{name} value {value} out of range ({min_v}-{max_v})")
+        self.data[offset] = value
+    
     def set_position(self, pos_code):
         """Set position code (0-15)."""
         if not 0 <= pos_code < len(POSITION_NAMES):
