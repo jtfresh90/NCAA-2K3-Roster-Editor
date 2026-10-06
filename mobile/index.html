@@ -87,10 +87,10 @@ const PLAYER_BASE = PLAYER_SECTION_OFF + PLAYER_HEADER_SKIP;
 const POSITION_OFF = 31;
 const NUMBER_OFF = 18;
 const POSITION_NAMES = ['QB','RB','FB','WR','TE','OT','OG','C','DT','DE','LB','CB','SS','FS','K','P'];
-// RATINGS: UNKNOWN - Bytes 43-58 are NOT ratings (v1.0.0-v1.4.0 bug).
-// Rating editor disabled in v1.5.0 pending format research.
-// const RATING_OFF = 43;  // DEPRECATED - DO NOT USE
-// const RATING_COUNT = 16;
+// RATINGS: VERIFIED (Oct 6 2026) - Bytes 43-58 are the 16 ratings.
+// Statistical analysis confirms position-specific distributions.
+const RATING_OFF = 43;
+const RATING_COUNT = 16;
 const TEAM_SECTION_OFF = 0x4E91;
 const TEAM_REC_SIZE = 116;
 const TEAM_COUNT = 160;
@@ -194,9 +194,29 @@ function getPlayerName(index) {
   return posName + ' #' + num;
 }
 
-// RATINGS: DISABLED in v1.5.0 - Offsets unknown (bytes 43-58 are NOT ratings)
-// function getPlayerRatings(index) { ... }  // REMOVED
-// function setPlayerRatings(index, ratings) { ... }  // REMOVED
+// RATINGS: VERIFIED (Oct 6 2026) - Bytes 43-58 are the 16 ratings.
+function getPlayerRatings(index) {
+  const off = PLAYER_BASE + (index * PLAYER_REC_SIZE) + RATING_OFF;
+  return Array.from(rostData.slice(off, off + RATING_COUNT));
+}
+
+function setPlayerRatings(index, ratings) {
+  const off = PLAYER_BASE + (index * PLAYER_REC_SIZE) + RATING_OFF;
+  for (let i = 0; i < RATING_COUNT; i++) {
+    rostData[off + i] = ratings[i];
+  }
+  isoModified = true;
+}
+
+function onRatingChanged(playerIndex) {
+  const inputs = document.querySelectorAll('#ratingsContainer .rating-input');
+  const ratings = Array.from(inputs).map(input => {
+    let v = parseInt(input.value, 10);
+    if (isNaN(v)) v = 0;
+    return Math.max(0, Math.min(99, v));
+  });
+  setPlayerRatings(playerIndex, ratings);
+}
 
 function getTeamPlayerCount(teamIndex) {
   const off = TEAM_SECTION_OFF + (teamIndex * TEAM_REC_SIZE) + 114;
@@ -412,14 +432,24 @@ function selectPlayer(index) {
   document.getElementById('editorPlayerName').textContent = playerName + ' (Player ' + index + ')';
   
   const container = document.getElementById('ratingsContainer');
-  container.innerHTML = `
-    <div style="padding: 20px; text-align: center; color: #888;">
-      <p><strong>${playerName}</strong></p>
-      <p>Rating editing disabled in v1.5.0</p>
-      <p style="font-size: 12px;">Rating byte offsets are under research.<br>
-      Bytes 43-58 (used in v1.0.0-v1.4.0) are NOT ratings.</p>
-    </div>
-  `;
+  const ratings = getPlayerRatings(index);
+  const ratingNames = [
+    'Rating 1', 'Rating 2', 'Rating 3', 'Rating 4',
+    'Rating 5', 'Rating 6', 'Rating 7', 'Rating 8',
+    'Rating 9', 'Rating 10', 'Rating 11', 'Rating 12',
+    'Rating 13', 'Rating 14', 'Rating 15', 'Rating 16'
+  ];
+  let html = `<div style="padding: 10px; text-align: center;"><strong>${playerName}</strong></div>`;
+  for (let i = 0; i < RATING_COUNT; i++) {
+    html += `
+      <div class="rating-row">
+        <span class="rating-label">${ratingNames[i]}</span>
+        <input type="number" class="rating-input" min="0" max="99"
+               value="${ratings[i]}" data-rating="${i}"
+               onchange="onRatingChanged(${index})">
+      </div>`;
+  }
+  container.innerHTML = html;
   
   showScreen('editorScreen');
 }
