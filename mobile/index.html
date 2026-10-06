@@ -50,6 +50,7 @@
     <div style="margin-bottom: 10px;">
       <button class="btn" onclick="showScreen('playbookTeamScreen')">📖 Playbook Editor</button>
       <button class="btn" onclick="showTextureScreen()">🎨 Texture Editor</button>
+      <button class="btn" onclick="balanceRosters()">⚖️ Balance Rosters</button>
     </div>
     <ul class="team-list" id="teamList"></ul>
   </div>
@@ -725,6 +726,82 @@ function encodeI8(img, width, height) {
   }
   
   return output;
+}
+
+// ============================================================================
+// ROSTER BALANCER
+// Redistributes players from large teams to small teams by adjusting
+// team count bytes (safe, no file expansion, reversible)
+// ============================================================================
+function balanceRosters() {
+  const minTarget = parseInt(prompt('Minimum players per team (teams below this receive players):', '60'), 10);
+  if (isNaN(minTarget)) return;
+  const maxTarget = parseInt(prompt('Maximum players per team (teams above this donate players):', '80'), 10);
+  if (isNaN(maxTarget)) return;
+  
+  if (!confirm(`Balance rosters?\n\nTeams with < ${minTarget} players will receive players\nTeams with > ${maxTarget} players will donate players\n\nThis adjusts team boundaries (safe, reversible). Continue?`)) {
+    return;
+  }
+  
+  // Get current counts
+  const counts = [];
+  for (let i = 0; i < TEAM_COUNT; i++) {
+    counts.push(getTeamPlayerCount(i));
+  }
+  
+  // Identify donors and recipients
+  const newCounts = [...counts];
+  let surplus = 0;
+  
+  // Collect surplus from donors
+  for (let i = 0; i < TEAM_COUNT; i++) {
+    if (counts[i] > maxTarget) {
+      surplus += counts[i] - maxTarget;
+      newCounts[i] = maxTarget;
+    }
+  }
+  
+  // Distribute to recipients (most needy first)
+  const recipients = [];
+  for (let i = 0; i < TEAM_COUNT; i++) {
+    if (counts[i] < minTarget) {
+      recipients.push([i, counts[i]]);
+    }
+  }
+  recipients.sort((a, b) => a[1] - b[1]);
+  
+  for (const [teamIdx, count] of recipients) {
+    const need = minTarget - count;
+    const give = Math.min(need, surplus);
+    newCounts[teamIdx] = count + give;
+    surplus -= give;
+    if (surplus <= 0) break;
+  }
+  
+  // Write new counts to ISO data
+  // Team section is at ROST + TEAM_SECTION_OFF
+  // We need ROST offset - it's at ISO_DAT_OFF + ROST_DAT_OFF
+  const ROST_DAT_OFF = 0xC3D530;
+  const TEAM_SECTION_OFF = 0x4E91;
+  const TEAM_REC_SIZE = 116;
+  const TEAM_PLAYER_COUNT_OFF = 114;
+  
+  const teamSectionBase = ISO_DAT_OFF + ROST_DAT_OFF + TEAM_SECTION_OFF;
+  let changed = 0;
+  for (let i = 0; i < TEAM_COUNT; i++) {
+    if (newCounts[i] !== counts[i]) {
+      const off = teamSectionBase + (i * TEAM_REC_SIZE) + TEAM_PLAYER_COUNT_OFF;
+      isoData[off] = newCounts[i];
+      changed++;
+    }
+  }
+  
+  isoModified = true;
+  
+  // Refresh team list
+  buildTeamList();
+  
+  alert(`Rosters balanced!\n\n${changed} teams adjusted.\nDownload the ISO to save changes.`);
 }
 
 function writePlaybookToISO() {

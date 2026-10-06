@@ -117,6 +117,10 @@ class RosterEditorWindow(QMainWindow):
         self.texture_btn.clicked.connect(self._open_texture_editor)
         top_bar.addWidget(self.texture_btn)
         
+        self.balance_btn = QPushButton("⚖️ Balance Rosters...")
+        self.balance_btn.clicked.connect(self._open_roster_balancer)
+        top_bar.addWidget(self.balance_btn)
+        
         layout.addLayout(top_bar)
         
         # Main splitter: player list | ratings
@@ -369,6 +373,59 @@ class RosterEditorWindow(QMainWindow):
             dialog.exec_()
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to open texture editor:\n{e}")
+    
+    def _open_roster_balancer(self):
+        """Balance roster sizes across teams."""
+        from PyQt5.QtWidgets import QInputDialog
+        
+        # Get target range
+        min_val, ok1 = QInputDialog.getInt(
+            self, "Balance Rosters",
+            "Minimum players per team (teams below this receive players):",
+            60, 37, 100, 1
+        )
+        if not ok1:
+            return
+        
+        max_val, ok2 = QInputDialog.getInt(
+            self, "Balance Rosters",
+            "Maximum players per team (teams above this donate players):",
+            80, min_val, 113, 1
+        )
+        if not ok2:
+            return
+        
+        # Confirm
+        reply = QMessageBox.question(
+            self, "Confirm Balance",
+            f"Balance rosters?\n\n"
+            f"Teams with < {min_val} players will receive players\n"
+            f"Teams with > {max_val} players will donate players\n\n"
+            f"This modifies team roster boundaries (safe, reversible).\n"
+            f"Output will be written to a new ISO file.\n\n"
+            f"Continue?",
+            QMessageBox.Yes | QMessageBox.No
+        )
+        if reply != QMessageBox.Yes:
+            return
+        
+        try:
+            from ncaa_balance_rosters import balance_rosters
+            import os
+            base = os.path.splitext(self.iso_path)[0]
+            output_path = base + "_balanced.iso"
+            
+            result = balance_rosters(self.iso_path, min_val, max_val, output_path)
+            if result:
+                QMessageBox.information(
+                    self, "Success",
+                    f"Rosters balanced!\n\nOutput: {result}\n\n"
+                    f"Reload the ISO to see the changes."
+                )
+            else:
+                QMessageBox.information(self, "No Changes", "No balancing needed.")
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Balancing failed:\n{e}")
 
 
 def main():
