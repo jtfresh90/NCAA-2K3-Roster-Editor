@@ -164,12 +164,13 @@ class RosterEditorWindow(QMainWindow):
         p = self.editor.get_player(idx)
         team_name = self.team_names.get(self.current_team_idx, f"Team {self.current_team_idx}")
         
-        self.player_label.setText(f"{team_name}, Player {idx} (ID: {p.player_id})")
-        ratings = p.ratings
-        for i, spin in enumerate(self.rating_spins):
+        self.player_label.setText(f"{team_name}, {p.display_name} (ID: {p.player_id})")
+        # Ratings are disabled in v1.5.0+ (bytes 43-58 are not ratings).
+        # Keep the placeholder spinboxes disabled and at 0.
+        for spin in self.rating_spins:
             spin.blockSignals(True)
-            spin.setValue(ratings[i])
-            spin.setEnabled(True)
+            spin.setValue(0)
+            spin.setEnabled(False)
             spin.blockSignals(False)
         
         self.save_btn.setEnabled(True)
