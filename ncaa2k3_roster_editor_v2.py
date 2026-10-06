@@ -42,6 +42,8 @@ class RosterEditorWindow(QMainWindow):
         self.current_team_idx = -1
         self.current_player_idx = -1
         self.rating_spins = []
+        self.nicknames = {}  # player_idx -> custom nickname (editor-side only)
+        self._load_nicknames()
         
         self.setWindowTitle(f"NCAA 2K3 Roster Editor v2 - {os.path.basename(iso_path)}")
         self.setGeometry(100, 100, 1100, 700)
@@ -56,6 +58,31 @@ class RosterEditorWindow(QMainWindow):
         except Exception as e:
             QMessageBox.critical(None, "Error", f"Failed to load ISO:\n{e}")
             sys.exit(1)
+    
+    def _nickname_path(self):
+        """Sidecar JSON file for custom nicknames (next to the ISO)."""
+        base = os.path.splitext(self.iso_path)[0]
+        return base + ".nicknames.json"
+    
+    def _load_nicknames(self):
+        """Load custom nicknames from sidecar file."""
+        import json
+        try:
+            with open(self._nickname_path(), 'r') as f:
+                data = json.load(f)
+                # Keys are player indices as strings
+                self.nicknames = {int(k): v for k, v in data.items()}
+        except (FileNotFoundError, ValueError, KeyError):
+            self.nicknames = {}
+    
+    def _save_nicknames(self):
+        """Save custom nicknames to sidecar file."""
+        import json
+        try:
+            with open(self._nickname_path(), 'w') as f:
+                json.dump({str(k): v for k, v in self.nicknames.items()}, f, indent=2)
+        except Exception as e:
+            self.statusBar().showMessage(f"Failed to save nicknames: {e}", 3000)
     
     def _build_ui(self):
         central = QWidget()
@@ -105,6 +132,31 @@ class RosterEditorWindow(QMainWindow):
         self.player_label.setStyleSheet("font-weight: bold; font-size: 14px;")
         ratings_layout.addWidget(self.player_label)
         
+        # Player info editor (position, number, nickname)
+        info_group = QGroupBox("Player Info")
+        info_form = QFormLayout(info_group)
+        
+        from ncaa_rost import POSITION_NAMES
+        self.position_combo = QComboBox()
+        self.position_combo.addItems(POSITION_NAMES)
+        self.position_combo.setEnabled(False)
+        self.position_combo.currentIndexChanged.connect(self._on_position_changed)
+        info_form.addRow("Position:", self.position_combo)
+        
+        self.number_spin = QSpinBox()
+        self.number_spin.setRange(1, 99)
+        self.number_spin.setEnabled(False)
+        self.number_spin.valueChanged.connect(self._on_number_changed)
+        info_form.addRow("Jersey #:", self.number_spin)
+        
+        self.nickname_edit = QLineEdit()
+        self.nickname_edit.setPlaceholderText("Custom nickname (editor only)")
+        self.nickname_edit.setEnabled(False)
+        self.nickname_edit.editingFinished.connect(self._on_nickname_changed)
+        info_form.addRow("Nickname:", self.nickname_edit)
+        
+        ratings_layout.addWidget(info_group)
+        
         ratings_group = QGroupBox("Ratings (16 attributes)")
         form = QFormLayout(ratings_group)
         
@@ -140,14 +192,20 @@ class RosterEditorWindow(QMainWindow):
         players = self.editor.get_team_players(team_idx)
         for p in players:
             # p.index is the global player index
-            item = QListWidgetItem(f"Player {p.index} (ID: {p.player_id})")
+            nickname = self.nicknames.get(p.index, "")
+            disp = f'"{nickname}" ' if nickname else ""
+            item = QListWidgetItem(f"{disp}{p.display_name} (ID: {p.player_id})")
             item.setData(Qt.UserRole, p.index)
             self.player_list.addItem(item)
         
         self.statusBar().showMessage(f"{team_name}: {len(players)} players")
-        # Clear ratings
+        # Clear player info and ratings
         self.current_player_idx = -1
         self.player_label.setText(f"{team_name} - Select a player")
+        self.position_combo.setEnabled(False)
+        self.number_spin.setEnabled(False)
+        self.nickname_edit.setEnabled(False)
+        self.nickname_edit.clear()
         for spin in self.rating_spins:
             spin.setEnabled(False)
     
@@ -160,7 +218,26 @@ class RosterEditorWindow(QMainWindow):
         p = self.editor.get_player(idx)
         team_name = self.team_names.get(self.current_team_idx, f"Team {self.current_team_idx}")
         
-        self.player_label.setText(f"{team_name}, {p.display_name} (ID: {p.player_id})")
+        nickname = self.nicknames.get(idx, "")
+        disp = f'"{nickname}" ' if nickname else ""
+        self.player_label.setText(f"{team_name}, {disp}{p.display_name} (ID: {p.player_id})")
+        
+        # Populate position, number, nickname
+        self.position_combo.blockSignals(True)
+        self.position_combo.setCurrentIndex(p.position)
+        self.position_combo.setEnabled(True)
+        self.position_combo.blockSignals(False)
+        
+        self.number_spin.blockSignals(True)
+        self.number_spin.setValue(p.jersey_number)
+        self.number_spin.setEnabled(True)
+        self.number_spin.blockSignals(False)
+        
+        self.nickname_edit.blockSignals(True)
+        self.nickname_edit.setText(nickname)
+        self.nickname_edit.setEnabled(True)
+        self.nickname_edit.blockSignals(False)
+        
         ratings = p.ratings
         for i, spin in enumerate(self.rating_spins):
             spin.blockSignals(True)
@@ -169,6 +246,66 @@ class RosterEditorWindow(QMainWindow):
             spin.blockSignals(False)
         
         self.save_btn.setEnabled(True)
+    
+    def _on_position_changed(self, pos_idx):
+        if self.current_player_idx < 0:
+            return
+        try:
+            self.editor.set_player_position(self.current_player_idx, pos_idx)
+            # Refresh the player label and list item
+            p = self.editor.get_player(self.current_player_idx)
+            team_name = self.team_names.get(self.current_team_idx, f"Team {self.current_team_idx}")
+            nickname = self.nicknames.get(self.current_player_idx, "")
+            disp = f'"{nickname}" ' if nickname else ""
+            self.player_label.setText(f"{team_name}, {disp}{p.display_name} (ID: {p.player_id})")
+            # Update list item text
+            for i in range(self.player_list.count()):
+                item = self.player_list.item(i)
+                if item.data(Qt.UserRole) == self.current_player_idx:
+                    item.setText(f"{disp}{p.display_name} (ID: {p.player_id})")
+                    break
+            self.statusBar().showMessage(f"Position updated to {p.position_name}", 2000)
+        except Exception as e:
+            QMessageBox.warning(self, "Error", f"Failed to update position:\n{e}")
+    
+    def _on_number_changed(self, number):
+        if self.current_player_idx < 0:
+            return
+        try:
+            self.editor.set_player_number(self.current_player_idx, number)
+            p = self.editor.get_player(self.current_player_idx)
+            team_name = self.team_names.get(self.current_team_idx, f"Team {self.current_team_idx}")
+            nickname = self.nicknames.get(self.current_player_idx, "")
+            disp = f'"{nickname}" ' if nickname else ""
+            self.player_label.setText(f"{team_name}, {disp}{p.display_name} (ID: {p.player_id})")
+            for i in range(self.player_list.count()):
+                item = self.player_list.item(i)
+                if item.data(Qt.UserRole) == self.current_player_idx:
+                    item.setText(f"{disp}{p.display_name} (ID: {p.player_id})")
+                    break
+            self.statusBar().showMessage(f"Jersey number updated to #{number}", 2000)
+        except Exception as e:
+            QMessageBox.warning(self, "Error", f"Failed to update number:\n{e}")
+    
+    def _on_nickname_changed(self):
+        if self.current_player_idx < 0:
+            return
+        nickname = self.nickname_edit.text().strip()
+        if nickname:
+            self.nicknames[self.current_player_idx] = nickname
+        else:
+            self.nicknames.pop(self.current_player_idx, None)
+        self._save_nicknames()
+        # Refresh label and list
+        p = self.editor.get_player(self.current_player_idx)
+        team_name = self.team_names.get(self.current_team_idx, f"Team {self.current_team_idx}")
+        disp = f'"{nickname}" ' if nickname else ""
+        self.player_label.setText(f"{team_name}, {disp}{p.display_name} (ID: {p.player_id})")
+        for i in range(self.player_list.count()):
+            item = self.player_list.item(i)
+            if item.data(Qt.UserRole) == self.current_player_idx:
+                item.setText(f"{disp}{p.display_name} (ID: {p.player_id})")
+                break
     
     def _on_rating_changed(self):
         if self.current_player_idx < 0:

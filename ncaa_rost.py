@@ -165,6 +165,18 @@ class Player:
         """Jersey number (u8 at +18)."""
         return self.data[NUMBER_OFF]
     
+    def set_position(self, pos_code):
+        """Set position code (0-15)."""
+        if not 0 <= pos_code < len(POSITION_NAMES):
+            raise ValueError(f"Position code {pos_code} out of range")
+        self.data[POSITION_OFF] = pos_code
+    
+    def set_jersey_number(self, number):
+        """Set jersey number (1-99)."""
+        if not 1 <= number <= 99:
+            raise ValueError(f"Jersey number {number} out of range (1-99)")
+        self.data[NUMBER_OFF] = number
+    
     @property
     def display_name(self):
         """Display name in 'QB #12' format (no licensed names)."""
@@ -317,6 +329,26 @@ class RostEditor:
         with open(self.iso_path, 'r+b') as f:
             f.seek(iso_off)
             f.write(bytes(values))
+    
+    def set_player_position(self, player_idx, pos_code):
+        """Set a player's position and write through to the ISO."""
+        from ncaa_rost import POSITION_OFF
+        player = self.rost.get_player(player_idx)
+        player.set_position(pos_code)
+        iso_off = self.rost_iso_off + PLAYER_BASE + player_idx * PLAYER_REC_SIZE + POSITION_OFF
+        with open(self.iso_path, 'r+b') as f:
+            f.seek(iso_off)
+            f.write(struct.pack('B', pos_code))
+    
+    def set_player_number(self, player_idx, number):
+        """Set a player's jersey number and write through to the ISO."""
+        from ncaa_rost import NUMBER_OFF
+        player = self.rost.get_player(player_idx)
+        player.set_jersey_number(number)
+        iso_off = self.rost_iso_off + PLAYER_BASE + player_idx * PLAYER_REC_SIZE + NUMBER_OFF
+        with open(self.iso_path, 'r+b') as f:
+            f.seek(iso_off)
+            f.write(struct.pack('B', number))
     
     @property
     def player_count(self):
