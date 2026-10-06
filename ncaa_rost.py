@@ -65,6 +65,35 @@ POSITION_NAMES = ['QB', 'RB', 'FB', 'WR', 'TE', 'OT', 'OG', 'C',
 RATING_OFF = 43
 RATING_COUNT = 16
 
+# Rating names (statistically inferred, UNVERIFIED - see rating_names.json)
+# Users can edit rating_names.json to correct names as they verify in-game
+def _load_rating_names():
+    """Load rating names from rating_names.json, fallback to generic."""
+    import json
+    import os
+    try:
+        # Try alongside this module
+        path = os.path.join(os.path.dirname(__file__), 'rating_names.json')
+        with open(path) as f:
+            data = json.load(f)
+        names = [''] * RATING_COUNT
+        for r in data.get('ratings', []):
+            idx = r.get('index')
+            if 0 <= idx < RATING_COUNT:
+                name = r.get('name', f'Rating {idx+1}')
+                # Mark unverified
+                names[idx] = name
+        # Fill any missing with generic
+        for i in range(RATING_COUNT):
+            if not names[i]:
+                names[i] = f'Rating {i+1}'
+        return names
+    except Exception:
+        return [f'Rating {i+1}' for i in range(RATING_COUNT)]
+
+RATING_NAMES = _load_rating_names()
+RATING_UNVERIFIED = True  # Set to False only when confirmed in-game
+
 # Team section constants (160 entries at ROST+0x4E91, 116 bytes each)
 TEAM_SECTION_OFF = 0x4E91
 TEAM_REC_SIZE = 116

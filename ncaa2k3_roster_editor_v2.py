@@ -23,15 +23,13 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtCore import Qt
 
-from ncaa_rost import RostEditor, RATING_COUNT
+from ncaa_rost import RostEditor, RATING_COUNT, RATING_NAMES, RATING_UNVERIFIED
 
-# Rating names (best guess based on typical football game attributes)
-RATING_NAMES = [
-    "Rating 1 (SPD?)", "Rating 2 (STR?)", "Rating 3 (AGI?)", "Rating 4 (ACC?)",
-    "Rating 5", "Rating 6", "Rating 7", "Rating 8",
-    "Rating 9", "Rating 10", "Rating 11", "Rating 12",
-    "Rating 13", "Rating 14", "Rating 15", "Rating 16",
-]
+# Rating names are loaded from rating_names.json (statistically inferred, unverified)
+# Display with asterisk to indicate unverified status
+def _display_rating_name(i):
+    base = RATING_NAMES[i] if i < len(RATING_NAMES) else f"Rating {i+1}"
+    return f"{base}*" if RATING_UNVERIFIED else base
 
 
 class RosterEditorWindow(QMainWindow):
@@ -166,7 +164,7 @@ class RosterEditorWindow(QMainWindow):
             spin.setEnabled(False)
             spin.valueChanged.connect(self._on_rating_changed)
             self.rating_spins.append(spin)
-            form.addRow(RATING_NAMES[i], spin)
+            form.addRow(_display_rating_name(i), spin)
         
         ratings_layout.addWidget(ratings_group)
         ratings_layout.addStretch()

@@ -46,7 +46,24 @@
   <div id="teamScreen" class="hidden">
     <button class="btn back-btn" onclick="showScreen('loadScreen')">← Back</button>
     <h2>Select Team</h2>
+    <div style="margin-bottom: 10px;">
+      <button class="btn" onclick="showScreen('playbookTeamScreen')">📖 Playbook Editor</button>
+    </div>
     <ul class="team-list" id="teamList"></ul>
+  </div>
+  
+  <div id="playbookTeamScreen" class="hidden">
+    <button class="btn back-btn" onclick="showScreen('teamScreen')">← Back to Teams</button>
+    <h2>Select Team Playbook</h2>
+    <ul class="team-list" id="playbookTeamList"></ul>
+  </div>
+  
+  <div id="playbookScreen" class="hidden">
+    <button class="btn back-btn" onclick="showScreen('playbookTeamScreen')">← Back to Playbooks</button>
+    <h2 id="playbookTeamName">Playbook</h2>
+    <p class="status">Tap two plays to swap them</p>
+    <ul class="player-list" id="playList"></ul>
+    <button class="btn btn-primary" onclick="downloadISO()">⬇️ Download Modified ISO</button>
   </div>
   
   <div id="playerScreen" class="hidden">
@@ -401,6 +418,170 @@ function buildTeamList() {
     li.onclick = () => selectTeam(i);
     list.appendChild(li);
   }
+  // Also build playbook team list
+  const pbList = document.getElementById('playbookTeamList');
+  if (pbList) {
+    pbList.innerHTML = '';
+    for (let i = 0; i < TEAM_COUNT; i++) {
+      const li = document.createElement('li');
+      li.className = 'team-item';
+      li.textContent = getTeamName(i);
+      li.onclick = () => selectPlaybookTeam(i);
+      pbList.appendChild(li);
+    }
+  }
+}
+
+// ============================================================================
+// PLAYBOOK EDITOR (v1.4.0 feature, ported to PWA)
+// Each team's playbook is XXX-PB.IFF with 132 null-terminated play filenames
+// ============================================================================
+const PLAYBOOK_COUNT = 132;
+let currentPlaybookTeam = -1;
+let currentPlays = [];
+let playbookFileOffset = -1;
+let playbookFileSize = 0;
+let selectedPlayIndex = -1;
+
+function findDatFile(filename) {
+  // Find file in DAT by name using filename table at ISO_DAT_OFF + 0x71D2
+  const nameTableOff = ISO_DAT_OFF + 0x71D2;
+  let names = [];
+  let pos = nameTableOff;
+  let start = pos;
+  while (names.length < 1212 && pos < isoData.length) {
+    if (isoData[pos] === 0) {
+      if (pos > start) {
+        let name = '';
+        for (let i = start; i < pos; i++) name += String.fromCharCode(isoData[i]);
+        names.push(name);
+      }
+      start = pos + 1;
+    }
+    pos++;
+    if (pos - nameTableOff > 60000) break;
+  }
+  
+  const idx = names.indexOf(filename);
+  if (idx === -1) return null;
+  
+  // Read DAT record
+  const recOff = ISO_DAT_OFF + DAT_RECORD_TABLE_OFF + (idx * DAT_RECORD_SIZE);
+  const size = readU32BE(isoData, recOff);
+  const endOffset = readU32BE(isoData, recOff + 20);
+  const dataBase = readU32BE(isoData, ISO_DAT_OFF + DAT_DATA_BASE_OFF);
+  const fileOff = ISO_DAT_OFF + dataBase + endOffset - size;
+  
+  return { offset: fileOff, size: size, index: idx };
+}
+
+function getTeamAbbr(teamIndex) {
+  // Team abbreviations - first 3 letters of team name, uppercase
+  // This is a simplification; real abbreviations may differ
+  const name = getTeamName(teamIndex);
+  // Remove non-letters, take first 3
+  const clean = name.replace(/[^A-Za-z]/g, '').toUpperCase();
+  return clean.substring(0, 3) || 'TM' + teamIndex;
+}
+
+function selectPlaybookTeam(teamIndex) {
+  currentPlaybookTeam = teamIndex;
+  const abbr = getTeamAbbr(teamIndex);
+  const filename = abbr + '-PB.IFF';
+  
+  const fileInfo = findDatFile(filename);
+  if (!fileInfo) {
+    alert('Playbook not found: ' + filename + '\n(Abbreviation guess may be wrong)');
+    return;
+  }
+  
+  playbookFileOffset = fileInfo.offset;
+  playbookFileSize = fileInfo.size;
+  
+  // Parse 132 null-terminated strings
+  currentPlays = [];
+  let pos = playbookFileOffset;
+  let start = pos;
+  while (currentPlays.length < PLAYBOOK_COUNT && pos < playbookFileOffset + playbookFileSize) {
+    if (isoData[pos] === 0) {
+      if (pos > start) {
+        let play = '';
+        for (let i = start; i < pos; i++) play += String.fromCharCode(isoData[i]);
+        play = play.trim();
+        if (play) currentPlays.push(play);
+      }
+      start = pos + 1;
+    }
+    pos++;
+  }
+  
+  document.getElementById('playbookTeamName').textContent = getTeamName(teamIndex) + ' Playbook (' + currentPlays.length + ' plays)';
+  buildPlayList();
+  showScreen('playbookScreen');
+}
+
+function buildPlayList() {
+  const list = document.getElementById('playList');
+  list.innerHTML = '';
+  selectedPlayIndex = -1;
+  for (let i = 0; i < currentPlays.length; i++) {
+    const li = document.createElement('li');
+    li.className = 'player-item';
+    li.textContent = (i + 1) + '. ' + currentPlays[i];
+    li.onclick = () => onPlaySelected(i);
+    li.id = 'play-' + i;
+    list.appendChild(li);
+  }
+}
+
+function onPlaySelected(index) {
+  if (selectedPlayIndex === -1) {
+    // First selection
+    selectedPlayIndex = index;
+    document.getElementById('play-' + index).style.background = '#e0e0ff';
+  } else if (selectedPlayIndex === index) {
+    // Deselect
+    document.getElementById('play-' + index).style.background = '';
+    selectedPlayIndex = -1;
+  } else {
+    // Swap the two plays
+    const tmp = currentPlays[selectedPlayIndex];
+    currentPlays[selectedPlayIndex] = currentPlays[index];
+    currentPlays[index] = tmp;
+    
+    // Write back to ISO data (in-place, same lengths required)
+    writePlaybookToISO();
+    
+    // Refresh display
+    buildPlayList();
+    alert('Plays swapped!');
+  }
+}
+
+function writePlaybookToISO() {
+  // Rebuild the playbook data with null-terminated strings
+  // Must fit in original size
+  let newData = [];
+  for (let play of currentPlays) {
+    for (let c of play) newData.push(c.charCodeAt(0));
+    newData.push(0);
+  }
+  
+  if (newData.length > playbookFileSize) {
+    alert('Error: New playbook too large!');
+    return;
+  }
+  
+  // Write to ISO data
+  for (let i = 0; i < newData.length; i++) {
+    isoData[playbookFileOffset + i] = newData[i];
+  }
+  // Zero-pad remainder
+  for (let i = newData.length; i < playbookFileSize; i++) {
+    isoData[playbookFileOffset + i] = 0;
+  }
+  
+  isoModified = true;
 }
 
 function selectTeam(index) {
@@ -456,11 +637,13 @@ function selectPlayer(index) {
   
   const container = document.getElementById('ratingsContainer');
   const ratings = getPlayerRatings(index);
+  // Rating names: statistically inferred, UNVERIFIED (see rating_names.json)
+  // Asterisk (*) indicates unverified. Edit rating_names.json to correct.
   const ratingNames = [
-    'Rating 1', 'Rating 2', 'Rating 3', 'Rating 4',
-    'Rating 5', 'Rating 6', 'Rating 7', 'Rating 8',
-    'Rating 9', 'Rating 10', 'Rating 11', 'Rating 12',
-    'Rating 13', 'Rating 14', 'Rating 15', 'Rating 16'
+    'Speed*', 'Strength*', 'Agility*', 'Acceleration*',
+    'Awareness*', 'Stamina*', 'Durability*', 'Throw Power*',
+    'Throw Accuracy*', 'Catching*', 'Run Blocking*', 'Tackling*',
+    'Coverage*', 'Pass Blocking*', 'Kick Power*', 'Kick Accuracy*'
   ];
   let html = `<div style="padding: 10px; text-align: center;"><strong>${playerName}</strong></div>`;
   for (let i = 0; i < RATING_COUNT; i++) {
