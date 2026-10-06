@@ -58,6 +58,7 @@
   <div id="editorScreen" class="hidden">
     <button class="btn back-btn" onclick="showScreen('playerScreen')">← Back to Players</button>
     <h2 id="editorPlayerName">Edit Player</h2>
+    <div id="playerInfoContainer" style="margin-bottom: 15px;"></div>
     <div id="ratingsContainer"></div>
     <button class="btn btn-primary" onclick="saveRatings()">💾 Save Ratings</button>
     <button class="btn" onclick="downloadISO()">⬇️ Download Modified ISO</button>
@@ -431,6 +432,28 @@ function selectPlayer(index) {
   const playerName = getPlayerName(index);
   document.getElementById('editorPlayerName').textContent = playerName + ' (Player ' + index + ')';
   
+  // Player info (position, number)
+  const rec = getPlayerRecord(index);
+  const pos = rec[POSITION_OFF];
+  const num = rec[NUMBER_OFF];
+  const infoContainer = document.getElementById('playerInfoContainer');
+  let posOptions = '';
+  for (let i = 0; i < POSITION_NAMES.length; i++) {
+    posOptions += `<option value="${i}"${i === pos ? ' selected' : ''}>${POSITION_NAMES[i]}</option>`;
+  }
+  infoContainer.innerHTML = `
+    <div class="rating-row">
+      <span class="rating-label">Position</span>
+      <select class="rating-input" style="width: 100px;" onchange="onPositionChanged(${index}, this.value)">
+        ${posOptions}
+      </select>
+    </div>
+    <div class="rating-row">
+      <span class="rating-label">Jersey #</span>
+      <input type="number" class="rating-input" min="1" max="99" value="${num}"
+             onchange="onNumberChanged(${index}, this.value)">
+    </div>`;
+  
   const container = document.getElementById('ratingsContainer');
   const ratings = getPlayerRatings(index);
   const ratingNames = [
@@ -454,9 +477,30 @@ function selectPlayer(index) {
   showScreen('editorScreen');
 }
 
-// Rating editing disabled in v1.5.0 - offsets unknown
+// Rating editing (v1.6.0+)
 function saveRatings() {
-  alert('Rating editing is disabled in v1.5.0. Offsets are under research.');
+  if (currentPlayer < 0) return;
+  onRatingChanged(currentPlayer);
+  alert('Ratings saved! Download the ISO to keep your changes.');
+}
+
+function onPositionChanged(playerIndex, posCode) {
+  const off = PLAYER_BASE + (playerIndex * PLAYER_REC_SIZE) + POSITION_OFF;
+  rostData[off] = parseInt(posCode, 10);
+  isoModified = true;
+  // Refresh the display name
+  const playerName = getPlayerName(playerIndex);
+  document.getElementById('editorPlayerName').textContent = playerName + ' (Player ' + playerIndex + ')';
+}
+
+function onNumberChanged(playerIndex, number) {
+  const off = PLAYER_BASE + (playerIndex * PLAYER_REC_SIZE) + NUMBER_OFF;
+  let n = parseInt(number, 10);
+  if (isNaN(n)) n = 1;
+  rostData[off] = Math.max(1, Math.min(99, n));
+  isoModified = true;
+  const playerName = getPlayerName(playerIndex);
+  document.getElementById('editorPlayerName').textContent = playerName + ' (Player ' + playerIndex + ')';
 }
 
 function downloadISO() {
