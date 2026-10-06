@@ -1,8 +1,14 @@
 # NCAA College Football 2K3 Roster Editor
 
-**Version 1.0.0** | GameCube | Python + PyQt5
+**Version 1.10.0** | GameCube | Python + PyQt5 | **PWA**: https://jtfresh90.github.io/NCAA-2K3-Roster-Editor/mobile/
 
 A roster editor for **NCAA College Football 2K3** (Nintendo GameCube, Game ID `GNAE8P`). Edit player ratings for all 7,091 players across 160 teams. Modeled on the 2K football mod tools architecture.
+
+## 📱 Mobile / PWA
+
+**Try it in your browser (iOS/Android)**: https://jtfresh90.github.io/NCAA-2K3-Roster-Editor/mobile/
+
+Open in Safari (iOS) or Chrome (Android), tap "Add to Home Screen" to install like an app. Load your ISO, edit rosters, playbooks, textures, and download the modified ISO. No Python needed!
 
 ## Features
 

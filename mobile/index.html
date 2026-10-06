@@ -38,8 +38,9 @@
 <div class="container">
   <div id="loadScreen">
     <p class="status">Select your NCAA College Football 2K3 (USA) ISO to begin.<br>Work on a COPY, never the original!</p>
-    <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()">📁 Load ISO File</button>
-    <input type="file" id="fileInput" accept=".iso,.nkit.iso">
+    <!-- Use label for iOS Safari compatibility (programmatic .click() is blocked) -->
+    <label for="fileInput" class="btn btn-primary" style="display: inline-block; cursor: pointer;">📁 Load ISO File</label>
+    <input type="file" id="fileInput" accept=".iso,.nkit.iso" style="display: none;">
     <p class="status" id="loadStatus"></p>
   </div>
   
