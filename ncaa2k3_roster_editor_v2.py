@@ -112,6 +112,11 @@ class RosterEditorWindow(QMainWindow):
         self.save_btn.clicked.connect(self._save_all)
         self.save_btn.setEnabled(False)
         top_bar.addWidget(self.save_btn)
+        
+        self.texture_btn = QPushButton("🎨 Textures...")
+        self.texture_btn.clicked.connect(self._open_texture_editor)
+        top_bar.addWidget(self.texture_btn)
+        
         layout.addLayout(top_bar)
         
         # Main splitter: player list | ratings
@@ -323,6 +328,15 @@ class RosterEditorWindow(QMainWindow):
             f"All changes have been written to:\n{self.iso_path}\n\n"
             "Note: Edit the ISO copy, not your original!"
         )
+    
+    def _open_texture_editor(self):
+        """Open the texture editor dialog."""
+        try:
+            from ncaa_texture_gui import TextureEditorDialog
+            dialog = TextureEditorDialog(self.iso_path, self)
+            dialog.exec_()
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to open texture editor:\n{e}")
 
 
 def main():

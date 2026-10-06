@@ -48,6 +48,7 @@
     <h2>Select Team</h2>
     <div style="margin-bottom: 10px;">
       <button class="btn" onclick="showScreen('playbookTeamScreen')">📖 Playbook Editor</button>
+      <button class="btn" onclick="showTextureScreen()">🎨 Texture Editor</button>
     </div>
     <ul class="team-list" id="teamList"></ul>
   </div>
@@ -63,6 +64,15 @@
     <h2 id="playbookTeamName">Playbook</h2>
     <p class="status">Tap two plays to swap them</p>
     <ul class="player-list" id="playList"></ul>
+    <button class="btn btn-primary" onclick="downloadISO()">⬇️ Download Modified ISO</button>
+  </div>
+  
+  <div id="textureScreen" class="hidden">
+    <button class="btn back-btn" onclick="showScreen('teamScreen')">← Back to Teams</button>
+    <h2>Texture Editor</h2>
+    <p class="status">⚠️ Research preview: formats inferred, not verified.<br>Select a texture, then upload a PNG to replace it.</p>
+    <ul class="player-list" id="textureList"></ul>
+    <input type="file" id="textureFileInput" accept=".png" style="display: none;">
     <button class="btn btn-primary" onclick="downloadISO()">⬇️ Download Modified ISO</button>
   </div>
   
@@ -556,6 +566,127 @@ function onPlaySelected(index) {
     buildPlayList();
     alert('Plays swapped!');
   }
+}
+
+// ============================================================================
+// TEXTURE EDITOR (Research Preview)
+// GameCube texture replacement using cruuz methodology:
+// encode user PNG to native format, replace byte span (no decode needed)
+// ============================================================================
+const TEXTURE_INVENTORY = [
+  { name: 'elbow01', file: '100A.IFF', datOffset: '0x17041c8', isoOffset: 0x17c9f30, size: 4184, format: 'I8 (inferred)', status: 'unverified' },
+  { name: 'elbow02', file: '100A.IFF', datOffset: '0x1705258', isoOffset: 0x17ca9d0, size: 4184, format: 'I8 (inferred)', status: 'unverified' },
+  { name: 'elbow03', file: '100A.IFF', datOffset: '0x17062e8', isoOffset: 0x17cba70, size: 4184, format: 'I8 (inferred)', status: 'unverified' },
+  { name: 'elbow04', file: '100A.IFF', datOffset: '0x1707378', isoOffset: 0x17ccb10, size: 4184, format: 'I8 (inferred)', status: 'unverified' },
+  { name: 'elbow05', file: '100A.IFF', datOffset: '0x1708408', isoOffset: 0x17cdbb0, size: 4184, format: 'I8 (inferred)', status: 'unverified' },
+];
+
+let selectedTexture = null;
+
+function showTextureScreen() {
+  const list = document.getElementById('textureList');
+  list.innerHTML = '';
+  for (let tex of TEXTURE_INVENTORY) {
+    const li = document.createElement('li');
+    li.className = 'player-item';
+    li.innerHTML = `<strong>${tex.name}</strong><br><small>${tex.file} • ${tex.size} bytes • ${tex.format}</small>`;
+    li.onclick = () => selectTexture(tex);
+    list.appendChild(li);
+  }
+  showScreen('textureScreen');
+}
+
+function selectTexture(tex) {
+  selectedTexture = tex;
+  if (confirm(`Replace '${tex.name}'?\n\nFile: ${tex.file}\nSize: ${tex.size} bytes\nFormat: ${tex.format} (UNVERIFIED)\n\nSelect a PNG file to use as replacement.`)) {
+    document.getElementById('textureFileInput').click();
+  }
+}
+
+// Handle PNG file selection for texture replacement
+document.addEventListener('DOMContentLoaded', () => {
+  const input = document.getElementById('textureFileInput');
+  if (input) {
+    input.addEventListener('change', handleTexturePNG);
+  }
+});
+
+function handleTexturePNG(event) {
+  const file = event.target.files[0];
+  if (!file || !selectedTexture) return;
+  
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const img = new Image();
+    img.onload = function() {
+      try {
+        // Encode to GameCube I8 (64x64, 8x4 tiles)
+        const encoded = encodeI8(img, 64, 64);
+        
+        // Replace in ISO data
+        // Note: 4184 byte span includes 88 bytes header, 4096 bytes pixel data
+        // This offset is GUESSED, not verified!
+        const PIXEL_OFFSET = 88;
+        const isoOff = selectedTexture.isoOffset + PIXEL_OFFSET;
+        
+        if (encoded.length !== 4096) {
+          alert('Encoding error: expected 4096 bytes, got ' + encoded.length);
+          return;
+        }
+        
+        for (let i = 0; i < encoded.length; i++) {
+          isoData[isoOff + i] = encoded[i];
+        }
+        
+        isoModified = true;
+        alert(`Texture '${selectedTexture.name}' replaced!\n\nDownload the ISO to save changes.\n⚠️ Format is UNVERIFIED - test in Dolphin!`);
+      } catch (err) {
+        alert('Texture replacement failed: ' + err.message);
+      }
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+  event.target.value = ''; // Reset for next use
+}
+
+function encodeI8(img, width, height) {
+  // GameCube I8: 8x4 tiles, 1 byte/pixel grayscale
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(img, 0, 0, width, height);
+  const imgData = ctx.getImageData(0, 0, width, height);
+  const pixels = imgData.data;
+  
+  const output = new Uint8Array(width * height);
+  let outIdx = 0;
+  
+  const blockW = Math.ceil(width / 8);
+  const blockH = Math.ceil(height / 4);
+  
+  for (let by = 0; by < blockH; by++) {
+    for (let bx = 0; bx < blockW; bx++) {
+      for (let py = 0; py < 4; py++) {
+        for (let px = 0; px < 8; px++) {
+          const x = bx * 8 + px;
+          const y = by * 4 + py;
+          if (x < width && y < height) {
+            const idx = (y * width + x) * 4;
+            // Convert to grayscale (luminance)
+            const r = pixels[idx], g = pixels[idx+1], b = pixels[idx+2];
+            const gray = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
+            output[outIdx++] = gray;
+          } else {
+            output[outIdx++] = 0;
+          }
+        }
+      }
+    }
+  }
+  
+  return output;
 }
 
 function writePlaybookToISO() {
