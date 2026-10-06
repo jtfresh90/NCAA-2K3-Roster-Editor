@@ -573,26 +573,63 @@ function onPlaySelected(index) {
 // GameCube texture replacement using cruuz methodology:
 // encode user PNG to native format, replace byte span (no decode needed)
 // ============================================================================
-const TEXTURE_INVENTORY = [
-  { name: 'elbow01', file: '100A.IFF', datOffset: '0x17041c8', isoOffset: 0x17c9f30, size: 4184, format: 'I8 (inferred)', status: 'unverified' },
-  { name: 'elbow02', file: '100A.IFF', datOffset: '0x1705258', isoOffset: 0x17ca9d0, size: 4184, format: 'I8 (inferred)', status: 'unverified' },
-  { name: 'elbow03', file: '100A.IFF', datOffset: '0x17062e8', isoOffset: 0x17cba70, size: 4184, format: 'I8 (inferred)', status: 'unverified' },
-  { name: 'elbow04', file: '100A.IFF', datOffset: '0x1707378', isoOffset: 0x17ccb10, size: 4184, format: 'I8 (inferred)', status: 'unverified' },
-  { name: 'elbow05', file: '100A.IFF', datOffset: '0x1708408', isoOffset: 0x17cdbb0, size: 4184, format: 'I8 (inferred)', status: 'unverified' },
+// Full inventory (13,738 textures) loaded from texture_inventory.json
+let TEXTURE_INVENTORY = [
+  { name: 'elbow01', file: '100A.IFF', isoOffset: 0x17c9f30, size: 4184, format: 'I4 128x64 (high)', status: 'unverified' },
 ];
 
 let selectedTexture = null;
+let textureInventoryLoaded = false;
+
+async function loadTextureInventory() {
+  if (textureInventoryLoaded) return;
+  try {
+    // Try to fetch the full inventory from GitHub Pages
+    const resp = await fetch('../texture_inventory.json');
+    if (resp.ok) {
+      const data = await resp.json();
+      // Convert to PWA format (limit to first 2000 for performance)
+      TEXTURE_INVENTORY = data.slice(0, 2000).map(t => ({
+        name: t.texture_name || t.name,
+        file: t.source_file || t.file,
+        isoOffset: parseInt(t.iso_offset, 16) || t.isoOffset,
+        size: t.size,
+        format: (t.format || 'unknown') + ' ' + (t.dimensions || ''),
+        status: t.status || 'unverified',
+        confidence: t.confidence || 'low'
+      }));
+      textureInventoryLoaded = true;
+      console.log('Loaded ' + TEXTURE_INVENTORY.length + ' textures');
+    }
+  } catch (e) {
+    console.log('Using built-in texture list (fetch failed):', e);
+  }
+}
 
 function showTextureScreen() {
+  // Load full inventory in background
+  loadTextureInventory().then(() => {
+    const list = document.getElementById('textureList');
+    list.innerHTML = '';
+    const displayCount = Math.min(TEXTURE_INVENTORY.length, 500);
+    for (let i = 0; i < displayCount; i++) {
+      const tex = TEXTURE_INVENTORY[i];
+      const li = document.createElement('li');
+      li.className = 'player-item';
+      li.innerHTML = `<strong>${tex.name}</strong><br><small>${tex.file} • ${tex.size} bytes • ${tex.format}</small>`;
+      li.onclick = () => selectTexture(tex);
+      list.appendChild(li);
+    }
+    if (TEXTURE_INVENTORY.length > 500) {
+      const li = document.createElement('li');
+      li.className = 'player-item';
+      li.innerHTML = `<small>... and ${TEXTURE_INVENTORY.length - 500} more (showing first 500)</small>`;
+      list.appendChild(li);
+    }
+  });
+  // Show immediately with built-in list
   const list = document.getElementById('textureList');
-  list.innerHTML = '';
-  for (let tex of TEXTURE_INVENTORY) {
-    const li = document.createElement('li');
-    li.className = 'player-item';
-    li.innerHTML = `<strong>${tex.name}</strong><br><small>${tex.file} • ${tex.size} bytes • ${tex.format}</small>`;
-    li.onclick = () => selectTexture(tex);
-    list.appendChild(li);
-  }
+  list.innerHTML = '<li class="player-item">Loading textures...</li>';
   showScreen('textureScreen');
 }
 
