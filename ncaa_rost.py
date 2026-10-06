@@ -173,10 +173,10 @@ class Player:
     # See module docstring for details.
     
     def get_rating(self, idx):
-        """Get a single rating (0-15)."""
-        if not 0 <= idx < RATING_COUNT:
-            raise ValueError(f"Rating index {idx} out of range")
-        return self.data[RATING_OFF + idx]
+        """Get a single rating (0-15). DEPRECATED - DO NOT USE."""
+        raise NotImplementedError(
+            "Ratings are disabled in v1.5.0+. Bytes 43-58 are not ratings."
+        )
     
     def to_bytes(self):
         return bytes(self.data)
@@ -282,23 +282,16 @@ class RostEditor:
         return self.rost.get_player(index)
     
     def set_player_rating(self, player_idx, rating_idx, value):
-        """Set a player's rating and write through to the ISO."""
-        player = self.rost.get_player(player_idx)
-        player.set_rating(rating_idx, value)
-        # Write the single byte to the ISO
-        iso_off = self.rost_iso_off + PLAYER_BASE + player_idx * PLAYER_REC_SIZE + RATING_OFF + rating_idx
-        with open(self.iso_path, 'r+b') as f:
-            f.seek(iso_off)
-            f.write(struct.pack('B', value))
+        """Set a player's rating and write through to the ISO. DEPRECATED."""
+        raise NotImplementedError(
+            "Ratings are disabled in v1.5.0+. Bytes 43-58 are not ratings."
+        )
     
     def set_player_ratings(self, player_idx, values):
-        """Set all 16 ratings for a player and write through to the ISO."""
-        player = self.rost.get_player(player_idx)
-        player.ratings = values
-        iso_off = self.rost_iso_off + PLAYER_BASE + player_idx * PLAYER_REC_SIZE + RATING_OFF
-        with open(self.iso_path, 'r+b') as f:
-            f.seek(iso_off)
-            f.write(bytes(values))
+        """Set all 16 ratings for a player and write through to the ISO. DEPRECATED."""
+        raise NotImplementedError(
+            "Ratings are disabled in v1.5.0+. Bytes 43-58 are not ratings."
+        )
     
     @property
     def player_count(self):

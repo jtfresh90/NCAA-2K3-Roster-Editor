@@ -23,7 +23,11 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtCore import Qt
 
-from ncaa_rost import RostEditor, RATING_COUNT
+from ncaa_rost import RostEditor
+
+# DEPRECATED: Ratings UI is disabled in v1.5.0+. Bytes 43-58 are NOT ratings.
+# Kept as a constant for the disabled placeholder UI only.
+RATING_COUNT = 16
 
 # Rating names (best guess based on typical football game attributes)
 RATING_NAMES = [
