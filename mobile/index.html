@@ -940,13 +940,13 @@ function selectPlayer(index) {
     [30, 'Equipment 7?*', 0, 1],
   ];
   html += `<div style="padding: 10px; text-align: center; margin-top: 10px;"><strong>Appearance/Equipment* (*=unverified)</strong></div>`;
-  const rec = getPlayerRecord(index);
+  const rec2 = getPlayerRecord(index);
   for (const [off, name, minV, maxV] of APPEARANCE_FIELDS) {
     html += `
       <div class="rating-row">
         <span class="rating-label">${name}</span>
         <input type="number" class="rating-input" min="${minV}" max="${maxV}"
-               value="${rec[off]}" data-appear="${off}"
+               value="${rec2[off]}" data-appear="${off}"
                onchange="onAppearanceChanged(${index}, ${off}, this.value)">
       </div>`;
   }
