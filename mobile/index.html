@@ -398,7 +398,19 @@ function showScreen(id) {
 
 function loadISO(file) {
   const status = document.getElementById('loadStatus');
-  status.textContent = 'Loading... (this may take a moment for 1.3GB file)';
+  
+  // Check file size (iOS Safari cannot handle 1.3GB files)
+  const sizeGB = (file.size / 1024 / 1024 / 1024).toFixed(2);
+  if (file.size > 500 * 1024 * 1024) {
+    status.innerHTML = `⚠️ File is ${sizeGB}GB. <b>iOS Safari cannot load files this large</b> (memory limit).<br><br>` +
+      `Options:<br>` +
+      `• Use the <b>Desktop EXE</b> on Windows instead<br>` +
+      `• Use Chrome on Android (may work with 1.3GB)<br>` +
+      `• Use Safari on Mac/PC`;
+    return;
+  }
+  
+  status.textContent = 'Loading... (this may take a moment)';
   
   const reader = new FileReader();
   reader.onload = function(e) {
@@ -415,6 +427,17 @@ function loadISO(file) {
       showScreen('teamScreen');
     } catch (err) {
       status.textContent = 'Error: ' + err.message;
+      console.error(err);
+    }
+  };
+  reader.onerror = function(e) {
+    status.textContent = 'Error reading file: ' + (reader.error ? reader.error.message : 'unknown');
+    console.error('FileReader error:', reader.error);
+  };
+  reader.onprogress = function(e) {
+    if (e.lengthComputable) {
+      const pct = Math.round((e.loaded / e.total) * 100);
+      status.textContent = `Loading... ${pct}%`;
     }
   };
   reader.readAsArrayBuffer(file);
