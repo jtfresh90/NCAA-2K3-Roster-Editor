@@ -23,11 +23,7 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtCore import Qt
 
-from ncaa_rost import RostEditor
-
-# DEPRECATED: Ratings UI is disabled in v1.5.0+. Bytes 43-58 are NOT ratings.
-# Kept as a constant for the disabled placeholder UI only.
-RATING_COUNT = 16
+from ncaa_rost import RostEditor, RATING_COUNT
 
 # Rating names (best guess based on typical football game attributes)
 RATING_NAMES = [
@@ -165,12 +161,11 @@ class RosterEditorWindow(QMainWindow):
         team_name = self.team_names.get(self.current_team_idx, f"Team {self.current_team_idx}")
         
         self.player_label.setText(f"{team_name}, {p.display_name} (ID: {p.player_id})")
-        # Ratings are disabled in v1.5.0+ (bytes 43-58 are not ratings).
-        # Keep the placeholder spinboxes disabled and at 0.
-        for spin in self.rating_spins:
+        ratings = p.ratings
+        for i, spin in enumerate(self.rating_spins):
             spin.blockSignals(True)
-            spin.setValue(0)
-            spin.setEnabled(False)
+            spin.setValue(ratings[i])
+            spin.setEnabled(True)
             spin.blockSignals(False)
         
         self.save_btn.setEnabled(True)
