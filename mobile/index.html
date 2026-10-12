@@ -42,6 +42,21 @@
     <label for="fileInput" class="btn btn-primary" style="display: inline-block; cursor: pointer;">📁 Load ISO File</label>
     <input type="file" id="fileInput" accept=".iso,.nkit.iso" style="display: none;">
     <p class="status" id="loadStatus"></p>
+    <details style="margin-top: 12px; text-align: left;">
+      <summary style="cursor: pointer; color: #888; font-size: 14px;">📋 What this app can do (capability table)</summary>
+      <table style="width: 100%; font-size: 13px; margin-top: 8px; border-collapse: collapse;">
+        <tr style="border-bottom: 1px solid #333;"><th style="text-align:left; padding:4px;">Feature</th><th style="text-align:left; padding:4px;">Status</th><th style="text-align:left; padding:4px;">Notes</th></tr>
+        <tr style="border-bottom: 1px solid #222;"><td style="padding:4px;">Ratings edit</td><td style="padding:4px;">✅ Editable</td><td style="padding:4px;">Statistically verified offsets</td></tr>
+        <tr style="border-bottom: 1px solid #222;"><td style="padding:4px;">Position / number</td><td style="padding:4px;">✅ Editable</td><td style="padding:4px;">Confirmed</td></tr>
+        <tr style="border-bottom: 1px solid #222;"><td style="padding:4px;">Team grouping</td><td style="padding:4px;">✅ Working</td><td style="padding:4px;">Uses player-count field</td></tr>
+        <tr style="border-bottom: 1px solid #222;"><td style="padding:4px;">Team names</td><td style="padding:4px;">⚠️ Partial (124/160)</td><td style="padding:4px;">Remaining show as "Team N"</td></tr>
+        <tr style="border-bottom: 1px solid #222;"><td style="padding:4px;">Player names</td><td style="padding:4px;">👁️ Display only ("QB #12")</td><td style="padding:4px;">No licensed names in this game</td></tr>
+        <tr style="border-bottom: 1px solid #222;"><td style="padding:4px;">Appearance fields</td><td style="padding:4px;">🔬 Research</td><td style="padding:4px;">Small enums, labels are guesses</td></tr>
+        <tr style="border-bottom: 1px solid #222;"><td style="padding:4px;">Texture replacement</td><td style="padding:4px;">🔬 Research preview</td><td style="padding:4px;">Format guessed, hash-verified write</td></tr>
+        <tr style="border-bottom: 1px solid #222;"><td style="padding:4px;">Playbook</td><td style="padding:4px;">🔬 Research / partial</td><td style="padding:4px;">Basic swap support</td></tr>
+        <tr><td style="padding:4px;">Emulator proof</td><td style="padding:4px;">⏳ Pending</td><td style="padding:4px;">Dolphin runtime verification needed</td></tr>
+      </table>
+    </details>
   </div>
   
   <div id="teamScreen" class="hidden">
