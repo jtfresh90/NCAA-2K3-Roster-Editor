@@ -25,6 +25,11 @@ from PyQt5.QtCore import Qt
 
 from ncaa_rost import RostEditor, RATING_COUNT, RATING_NAMES, RATING_UNVERIFIED
 
+# Release version shown in the window title — bump on every release so the
+# EXE always shows which release it was built from (v1.2.0 stayed hardcoded
+# in the NCAA 05 browser for four releases; don't repeat that here).
+VERSION = "v1.12.3"
+
 # Rating names are loaded from rating_names.json (statistically inferred, unverified)
 # Display with asterisk to indicate unverified status
 def _display_rating_name(i):
@@ -43,7 +48,7 @@ class RosterEditorWindow(QMainWindow):
         self.nicknames = {}  # player_idx -> custom nickname (editor-side only)
         self._load_nicknames()
         
-        self.setWindowTitle(f"NCAA 2K3 Roster Editor v2 (v1.12.2) - {os.path.basename(iso_path)}")
+        self.setWindowTitle(f"NCAA 2K3 Roster Editor v2 ({VERSION}) - {os.path.basename(iso_path)}")
         self.setGeometry(100, 100, 1100, 700)
         
         self._load_roster()
