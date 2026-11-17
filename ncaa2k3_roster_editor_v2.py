@@ -43,7 +43,7 @@ class RosterEditorWindow(QMainWindow):
         self.nicknames = {}  # player_idx -> custom nickname (editor-side only)
         self._load_nicknames()
         
-        self.setWindowTitle(f"NCAA 2K3 Roster Editor v2 - {os.path.basename(iso_path)}")
+        self.setWindowTitle(f"NCAA 2K3 Roster Editor v2 (v1.12.2) - {os.path.basename(iso_path)}")
         self.setGeometry(100, 100, 1100, 700)
         
         self._load_roster()
